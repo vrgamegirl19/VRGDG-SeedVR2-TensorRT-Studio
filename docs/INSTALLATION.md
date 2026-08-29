@@ -41,7 +41,7 @@ TensorRT plan files are tied to the GPU architecture and runtime version. The re
 - vae_decoder_tile_512_5f.rtxplan
 - vae_decoder_tile_256_21f.rtxplan
 
-If setup stops during this stage, run it again. Existing valid plans are retained.
+If setup stops during this stage, run it again. Existing valid plans are retained. ONNX export and TensorRT builds should keep printing progress; several minutes per engine is normal.
 
 ## Logs and troubleshooting
 
@@ -51,6 +51,7 @@ Common failures:
 
 - **No NVIDIA driver detected:** install or update the NVIDIA driver, restart Windows, and rerun setup.
 - **Not enough disk space:** clear space and rerun. Partial model downloads resume.
+- **Installer sits on the legacy ONNX deprecation warning with no `Exported:` line:** this was a hang in CPU TorchScript export of the 512-tile VAE. Current builds export on the GPU with portable convolution ops. Close the stuck window, update to this version, and rerun setup. Completed engines are skipped. To finish install without TensorRT, run `.\scripts\install.ps1 -SkipTensorRT` and use SeedVR2 Legacy until you rerun a full setup.
 - **TensorRT build failure:** close GPU-heavy programs, confirm the NVIDIA driver is current, then rerun.
 - **SageAttention verification failure:** follow the [SageAttention guide](SAGEATTENTION.md).
 - **FFmpeg still missing after winget:** restart Windows so the system PATH refreshes, then rerun.

@@ -13,8 +13,10 @@ if hasattr(sys.stdout, "reconfigure"):
 
 ROOT = Path(__file__).resolve().parents[1]
 VENDOR = ROOT / "vendor" / "seedvr2"
+sys.path.insert(0, str(ROOT / "tools"))
 sys.path.insert(0, str(VENDOR))
 
+from onnx_export_utils import export_onnx_fixed_shape  # noqa: E402
 from src.core.generation_utils import prepare_runner, setup_generation_context  # noqa: E402
 from src.core.model_loader import materialize_model  # noqa: E402
 from src.models.video_vae_v3.modules.types import MemoryState  # noqa: E402
@@ -80,10 +82,16 @@ def main() -> None:
     args.output.parent.mkdir(parents=True, exist_ok=True)
     with torch.inference_mode():
         reference = encoder(video)
-        encoder_cpu = Encoder(vae.cpu()).eval()
-        torch.onnx.export(encoder_cpu, (video.cpu(),), str(args.output),
-                          input_names=["video"], output_names=["latent_raw"],
-                          opset_version=20, dynamo=not args.legacy_export, optimize=False)
+        # Portable GPU export: cuDNN and fused SDPA are disabled so the
+        # tracer records Conv/MatMul instead of CUDA-only kernels.
+        export_onnx_fixed_shape(
+            encoder,
+            (video,),
+            args.output,
+            input_names=["video"],
+            output_names=["latent_raw"],
+            dynamo=not args.legacy_export,
+        )
     print(f"Exported: {args.output}")
     print(f"Video shape: {tuple(video.shape)}")
     print(f"Raw latent shape: {tuple(reference.shape)}")

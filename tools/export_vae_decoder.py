@@ -18,8 +18,10 @@ if hasattr(sys.stdout, "reconfigure"):
 
 ROOT = Path(__file__).resolve().parents[1]
 VENDOR = ROOT / "vendor" / "seedvr2"
+sys.path.insert(0, str(ROOT / "tools"))
 sys.path.insert(0, str(VENDOR))
 
+from onnx_export_utils import export_onnx_fixed_shape  # noqa: E402
 from src.core.generation_utils import prepare_runner, setup_generation_context  # noqa: E402
 from src.core.model_loader import materialize_model  # noqa: E402
 from src.utils.debug import Debug  # noqa: E402
@@ -111,20 +113,15 @@ def main() -> None:
     args.output.parent.mkdir(parents=True, exist_ok=True)
     with torch.inference_mode():
         reference = decoder(latent)
-        # ONNX export must trace the portable convolution operators rather
-        # than CUDA-only aten::cudnn_convolution. Keep the CUDA result above
-        # as the reference, then export an identical CPU copy.
-        decoder_cpu = Decoder(vae.decoder.cpu()).eval()
-        latent_cpu = latent.cpu()
-        torch.onnx.export(
-            decoder_cpu,
-            (latent_cpu,),
-            str(args.output),
+        # Portable GPU export: cuDNN and fused SDPA are disabled so the
+        # tracer records Conv/MatMul instead of CUDA-only kernels.
+        export_onnx_fixed_shape(
+            decoder,
+            (latent,),
+            args.output,
             input_names=["latent"],
             output_names=["sample"],
-            opset_version=20,
             dynamo=not args.legacy_export,
-            optimize=False,
         )
     print(f"Exported: {args.output}")
     print(f"Latent shape: {tuple(latent.shape)}")

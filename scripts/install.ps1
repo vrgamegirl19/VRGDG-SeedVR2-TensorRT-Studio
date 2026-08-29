@@ -8,6 +8,7 @@ $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
 $env:PYTHONUTF8 = '1'
 $env:PYTHONIOENCODING = 'utf-8'
+$env:PYTHONUNBUFFERED = '1'
 $StudioRoot = Split-Path -Parent $PSScriptRoot
 $Outputs = Join-Path $StudioRoot 'outputs'
 $Log = Join-Path $Outputs 'install.log'

@@ -25,19 +25,30 @@ def run(command: list[str]) -> None:
 
 def main() -> int:
     ARTIFACTS.mkdir(parents=True, exist_ok=True)
-    for label, stem, exporter, arguments in PROFILES:
+    total = len(PROFILES)
+    print(
+        f"Building {total} GPU-specific TensorRT VAE engines. "
+        "Leave this window open; each export and engine build can take several minutes.",
+        flush=True,
+    )
+    for index, (label, stem, exporter, arguments) in enumerate(PROFILES, start=1):
         onnx = ARTIFACTS / f"{stem}.onnx"
         engine = ARTIFACTS / f"{stem}.rtxplan"
         if engine.exists() and engine.stat().st_size > 1_000_000:
-            print(f"Skipping {label}; engine already exists: {engine.name}")
+            print(f"Skipping {label}; engine already exists: {engine.name}", flush=True)
             continue
-        print(f"\nPreparing TensorRT {label} profile...")
+        print(f"\nPreparing TensorRT {label} profile ({index}/{total})...", flush=True)
         if not onnx.exists():
-            run([str(PYTHON), str(ROOT / "tools" / exporter), *arguments, "--output", str(onnx)])
-        run([str(PYTHON), str(ROOT / "tools" / "build_tensorrt_engine.py"), str(onnx), "--output", str(engine), "--workspace-gb", "8"])
+            print(f"Exporting {label} ONNX graph...", flush=True)
+            run([str(PYTHON), "-u", str(ROOT / "tools" / exporter), *arguments, "--output", str(onnx)])
+        else:
+            print(f"Reusing existing ONNX: {onnx.name}", flush=True)
+        print(f"Building TensorRT engine for {label}...", flush=True)
+        run([str(PYTHON), "-u", str(ROOT / "tools" / "build_tensorrt_engine.py"), str(onnx), "--output", str(engine), "--workspace-gb", "8"])
         if not engine.exists():
             raise RuntimeError(f"TensorRT did not create {engine}")
-    print("\nAll TensorRT VAE engines are ready.")
+        print(f"Finished {label}: {engine.name}", flush=True)
+    print("\nAll TensorRT VAE engines are ready.", flush=True)
     return 0
 
 
