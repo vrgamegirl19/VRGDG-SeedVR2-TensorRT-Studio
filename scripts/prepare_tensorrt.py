@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import shlex
 import subprocess
 import sys
 import time
@@ -20,7 +21,7 @@ PROFILES = (
 
 
 def run(command: list[str]) -> None:
-    print("\n> " + subprocess.list2cmdline(command), flush=True)
+    print("\n> " + shlex.join(command), flush=True)
     subprocess.run([command[0], "-u", *command[1:]], cwd=ROOT, check=True)
 
 

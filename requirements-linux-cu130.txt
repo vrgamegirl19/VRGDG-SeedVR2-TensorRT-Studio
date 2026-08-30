@@ -1,0 +1,8 @@
+# Linux/CUDA 13 stack for the Linux branch.
+# PyTorch and its matching Linux Triton wheel are installed separately from
+# the nightly cu130 index by scripts/install.sh.
+sageattention==1.0.6
+tensorrt-rtx==1.6.1.120
+onnx==1.22.0
+onnxscript==0.7.1
+polygraphy==0.53.4

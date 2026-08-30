@@ -131,7 +131,7 @@ def render(
 ) -> Path:
     available, reason = backend_status()
     if not available:
-        raise MediaError(reason + " Run scripts\\setup_seedvr2.ps1 first.")
+        raise MediaError(reason + " Run the installer for your platform again.")
 
     use_tensorrt = "TensorRT" in backend_name and not settings.stop_before_vae
     if use_tensorrt:

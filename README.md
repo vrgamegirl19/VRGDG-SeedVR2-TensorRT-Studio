@@ -2,7 +2,9 @@
 
 Local, GPU-accelerated video restoration and upscaling with SeedVR2, TensorRT, and a purpose-built browser interface.
 
-VRGDG SeedVR2 TensorRT Studio turns the SeedVR2 pipeline into a practical Windows workflow: load a video, test a short preview, compare the result frame by frame, and complete long renders with resumable checkpoints. Processing stays on your machine.
+VRGDG SeedVR2 TensorRT Studio turns the SeedVR2 pipeline into a practical Linux workflow: load a video, test a short preview, compare the result frame by frame, and complete long renders with resumable checkpoints. Processing stays on your machine.
+
+> **Linux branch:** This branch targets native Linux. For the supported Windows package, use the `main` branch.
 
 ![VRGDG SeedVR2 TensorRT Studio full interface](images/seedvr2-studio-screenshot.png)
 
@@ -14,7 +16,7 @@ VRGDG SeedVR2 TensorRT Studio turns the SeedVR2 pipeline into a practical Window
 - **Long-render recovery** — save completed chunks and continue from the first unfinished chunk after an interruption.
 - **Practical output controls** — choose resolution, aspect policy, model precision, temporal batch, seed, and color correction.
 - **Non-destructive finishing** — reprocess sharpening, grain, seam smoothing, and optional skin finishing without rerunning restoration.
-- **Project-based history** — reopen previous outputs and keep media, manifests, and logs together under `outputs\`.
+- **Project-based history** — reopen previous outputs and keep media, manifests, and logs together under `outputs/`.
 
 ## Before and after examples
 
@@ -27,25 +29,26 @@ Each recording demonstrates the Studio's interactive comparison view, with the o
 
 | | Recommended setup |
 |---|---|
-| Operating system | Windows 11 |
+| Operating system | Ubuntu 24.04 LTS or a modern x86-64 Linux distribution |
 | GPU | NVIDIA RTX with a current driver |
 | Storage | At least 35 GB free |
 | Network | Internet connection for the first installation |
-| Python | Installed automatically when needed; the project requires Python 3.12+ |
+| CUDA | CUDA Toolkit 13.4 with `nvcc` for TensorRT |
+| Python | Python 3.12+ with `venv` support |
 
-TensorRT engines are built locally for the installed GPU and runtime. Do not copy `.rtxplan` files between different GPU models or TensorRT versions.
+TensorRT engines are built locally for the installed GPU, Linux runtime, and CUDA/TensorRT versions. Do not copy `.rtxplan` files from Windows, another GPU, or a different runtime.
 
 ## Quick start
 
-1. Download or clone this repository.
-2. Double-click **Install SeedVR Studio.bat** and leave the window open until setup completes.
-3. Double-click **Launch SeedVR Studio Pro.bat**.
-4. Drop a source video into the Media panel.
-5. Render a short preview, inspect it, and then render the full video.
+1. Clone the Linux branch: `git clone --branch linux https://github.com/vrgamegirl19/VRGDG-SeedVR2-TensorRT-Studio.git`.
+2. Enter the repository and run `chmod +x "Install SeedVR Studio.sh" "Launch SeedVR Studio Pro.sh" scripts/*.sh`.
+3. Run `./Install\ SeedVR\ Studio.sh` and leave the terminal open until setup completes.
+4. Run `./Launch\ SeedVR\ Studio\ Pro.sh`.
+5. Drop a source video into the Media panel, render a short preview, inspect it, and then render the full video.
 
-The installer prepares the private Python environment, FFmpeg, CUDA PyTorch, SeedVR2, SageAttention 2, TensorRT RTX, model weights, and GPU-specific engines. Downloads and engine preparation are resumable. The Pro launcher also detects an incomplete setup and opens the installer automatically.
+The installer prepares a private Linux Python environment, checks FFmpeg and CUDA, installs CUDA PyTorch, SeedVR2, SageAttention, TensorRT RTX, model weights, and builds Linux/GPU-specific engines. Downloads and engine preparation are resumable. The launcher detects an incomplete full installation and starts the installer automatically.
 
-For repair options and troubleshooting, see the [installation guide](docs/INSTALLATION.md).
+For prerequisites, headless use, repair options, and troubleshooting, see the [Linux installation guide](docs/INSTALLATION_LINUX.md).
 
 ## Workflow
 
@@ -114,7 +117,7 @@ Set a short preview range, render it, and compare the result before starting the
 |---|---|
 | ![Ready state, elapsed time, ETA, power, and fullscreen controls](images/ui-guide/controls/render-status.png) | ![Previous-results selector and load button](images/ui-guide/controls/previous-results.png) |
 
-Every job receives its own folder under `outputs\` with rendered media, manifests, and logs. Use **Load selected output** to reopen a result from the current workspace.
+Every job receives its own folder under `outputs/` with rendered media, manifests, and logs. Use **Load selected output** to reopen a result from the current workspace.
 
 ## Render engines
 
@@ -136,7 +139,7 @@ The temporal-batch menu updates automatically when the render engine changes.
 
 ## Files and local data
 
-Model weights live in `models\` and are not committed to GitHub. Outputs, virtual environments, TensorRT engines and caches, temporary ONNX exports, and optional runtime files also remain local.
+Model weights live in `models/` and are not committed to GitHub. Outputs, virtual environments, TensorRT engines and caches, temporary ONNX exports, and optional runtime files also remain local.
 
 | Path | Purpose |
 |---|---|
@@ -150,7 +153,7 @@ Model weights live in `models\` and are not committed to GitHub. Outputs, virtua
 
 ## Documentation
 
-- [Installation and troubleshooting](docs/INSTALLATION.md)
+- [Linux installation and troubleshooting](docs/INSTALLATION_LINUX.md)
 - [SageAttention setup and verification](docs/SAGEATTENTION.md)
 - [Third-party notices](THIRD_PARTY_NOTICES.md)
 

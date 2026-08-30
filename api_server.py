@@ -12,6 +12,7 @@ import json
 import os
 import signal
 import shutil
+import sys
 import subprocess
 import time
 import traceback
@@ -403,12 +404,26 @@ def shutdown() -> dict[str, object]:
 
 @app.post("/api/open-folder")
 def open_output_folder(output_path: str = Form(...)) -> dict[str, object]:
-    """Open Explorer with a workspace video selected."""
+    """Open the selected output in the platform file manager."""
     relative = output_path.removeprefix("/media/").lstrip("/\\")
     candidate = (OUTPUTS / relative).resolve()
     if OUTPUTS.resolve() not in candidate.parents or not candidate.is_file():
         raise HTTPException(status_code=404, detail="Selected output was not found")
-    subprocess.Popen(["explorer.exe", f"/select,{candidate}"], close_fds=True)
+    if sys.platform == "win32":
+        command = ["explorer.exe", f"/select,{candidate}"]
+    elif sys.platform == "darwin":
+        command = ["open", "-R", str(candidate)]
+    else:
+        command = ["xdg-open", str(candidate.parent)]
+    try:
+        subprocess.Popen(
+            command,
+            close_fds=True,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+    except OSError as exc:
+        raise HTTPException(status_code=503, detail=f"Could not open the system file manager: {exc}") from exc
     return {"ok": True}
 
 

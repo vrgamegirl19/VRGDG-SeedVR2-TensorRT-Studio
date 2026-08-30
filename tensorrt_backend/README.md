@@ -10,8 +10,8 @@ The workspace currently has the Python TensorRT-RTX bindings and ONNX export
 tools installed in the project virtual environment. Run the smoke test from
 the repository root:
 
-```powershell
-.\.venv\Scripts\python.exe tools\tensorrt_smoke.py
+```bash
+./.venv/bin/python tools/tensorrt_smoke.py
 ```
 
 The first implementation target is a fixed-shape VAE graph. Once its TensorRT

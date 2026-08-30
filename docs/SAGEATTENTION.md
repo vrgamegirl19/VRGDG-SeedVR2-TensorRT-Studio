@@ -4,7 +4,7 @@
 
 SageAttention is an optimized attention backend used during SeedVR2's DiT restoration stage. It can reduce attention time and memory traffic. It does not alter the TensorRT VAE engine, and it is not a separate upscaler or quality model.
 
-The Studio defaults to **SageAttention 2** because it works on a wider range of NVIDIA RTX GPUs. The installer installs SageAttention 1.0.6 and Triton for Windows 3.5.1.post24.
+The Studio defaults to **SageAttention 2** because it works on a wider range of NVIDIA RTX GPUs. The Linux installer installs SageAttention 1.0.6 and uses the matching Triton package supplied with the Linux CUDA PyTorch environment.
 
 ## Choosing a mode
 
@@ -19,29 +19,29 @@ Missing accelerated backends do not invalidate a render. SeedVR2 checks what is 
 
 From the repository folder:
 
-~~~powershell
-$env:PYTHONUTF8='1'
-.\.venv\Scripts\python.exe -c "import sys; sys.path.insert(0, 'vendor/seedvr2'); from src.optimization.compatibility import SAGE_ATTN_2_AVAILABLE; print('SageAttention 2 ready:', SAGE_ATTN_2_AVAILABLE)"
+~~~bash
+export PYTHONUTF8=1
+./.venv/bin/python -c "import sys; sys.path.insert(0, 'vendor/seedvr2'); from src.optimization.compatibility import SAGE_ATTN_2_AVAILABLE; print('SageAttention 2 ready:', SAGE_ATTN_2_AVAILABLE)"
 ~~~
 
 The result should be **True**.
 
 For a fuller check:
 
-~~~powershell
-$env:PYTHONUTF8='1'
-.\.venv\Scripts\python.exe -c "import torch, sageattention; print('GPU:', torch.cuda.get_device_name(0)); print('CUDA:', torch.version.cuda); print('SageAttention:', sageattention.__file__)"
+~~~bash
+export PYTHONUTF8=1
+./.venv/bin/python -c "import torch, sageattention; print('GPU:', torch.cuda.get_device_name(0)); print('CUDA:', torch.version.cuda); print('SageAttention:', sageattention.__file__)"
 ~~~
 
 ## Repair it
 
 Close the Studio and run:
 
-~~~powershell
-.\scripts\install.ps1 -Repair
+~~~bash
+./scripts/install.sh --repair
 ~~~
 
-That reinstalls the known-good Windows CUDA stack and reruns verification. If the exact tested PyTorch nightly is no longer available, the installer uses the newest mutually compatible CUDA 13 nightly and reports that fallback.
+That reinstalls the Linux CUDA stack and reruns verification. If the exact tested PyTorch nightly is no longer available, the installer uses the newest mutually compatible CUDA 13 nightly and reports that fallback.
 
 ## Reading the render log
 
