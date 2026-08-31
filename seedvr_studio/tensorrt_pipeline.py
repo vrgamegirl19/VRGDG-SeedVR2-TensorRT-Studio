@@ -49,6 +49,36 @@ def _safe_print(value: str, *, end: str = "\n") -> None:
         print(value.encode(encoding, errors="replace").decode(encoding, errors="replace"), end=end, flush=True)
 
 
+def assemble_command(
+    selected_files: list[Path],
+    output: Path,
+    source: Path,
+    *,
+    fps: float,
+    seam_mode: str,
+    seam_frames: int,
+    target_width: int = 0,
+    target_height: int = 0,
+) -> list[str]:
+    """Build an assembler command that does not exceed the Windows argument limit."""
+    list_path = output.parent / "assemble-inputs.txt"
+    list_path.write_text("\n".join(str(path) for path in selected_files) + "\n", encoding="utf-8")
+    command = [
+        str(VENV_PYTHON), str(TRT_ASSEMBLER),
+        "--input-list", str(list_path),
+        "--output", str(output),
+        "--audio", str(source),
+        "--fps", f"{fps:.9g}",
+        "--seam-mode", seam_mode,
+        "--seam-frames", str(seam_frames),
+    ]
+    if target_width > 0:
+        command.extend(["--target-width", str(target_width)])
+    if target_height > 0:
+        command.extend(["--target-height", str(target_height)])
+    return command
+
+
 def _profile_latents(latent_files: list[Path]) -> list[dict[str, Any]]:
     profiles: list[dict[str, Any]] = []
     for index, latent_file in enumerate(latent_files, start=1):
@@ -218,11 +248,13 @@ def decode_postprocess_and_assemble(
     target_width, target_height = _unpadded_output_size(
         source, settings.resolution, settings.max_resolution
     )
-    assemble = [
-        str(VENV_PYTHON), str(TRT_ASSEMBLER), *map(str, selected_files), "--output", str(output),
-        "--audio", str(source), "--fps", f"{source_fps:.9g}", "--seam-mode", settings.seam_mode, "--seam-frames", str(settings.seam_frames),
-        "--target-width", str(target_width), "--target-height", str(target_height),
-    ]
+    assemble = assemble_command(
+        selected_files, output, source,
+        fps=source_fps, seam_mode=settings.seam_mode, seam_frames=settings.seam_frames,
+        target_width=target_width, target_height=target_height,
+    )
+    if progress_callback:
+        progress_callback(0.96, f"Assembling {len(selected_files)} decoded batches")
     result = subprocess.run(
         assemble, cwd=ROOT, env=child_env, text=True, encoding="utf-8", errors="replace", capture_output=True
     )
