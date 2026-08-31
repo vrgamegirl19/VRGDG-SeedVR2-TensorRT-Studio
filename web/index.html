@@ -9,7 +9,10 @@
 <body>
   <header class="appbar">
     <div class="brand"><span class="brand-mark">S</span><span>SeedVR <em>Studio</em></span><small>Beta</small></div>
-    <div class="connection"><span class="status-dot" id="api-dot"></span><span id="api-status">Connecting…</span></div>
+    <div class="appbar-right">
+      <button id="log-visible-toggle" class="appbar-log-toggle active" type="button" title="Hide the server log pane">Hide log</button>
+      <div class="connection"><span class="status-dot" id="api-dot"></span><span id="api-status">Connecting…</span></div>
+    </div>
   </header>
   <main class="workspace">
     <aside class="control-rail">
@@ -66,6 +69,23 @@
       </section>
       <section class="render-bar"><div class="preview-fields"><label>Preview start<input id="preview-start" type="number" min="0" step=".1" value="3"> sec</label><label>Length<input id="preview-seconds" type="number" min="1" max="10" step=".5" value="3"> sec</label></div><div class="render-actions"><button id="reprocess-post" class="secondary-button" hidden>Reprocess post only</button><button id="render-preview" class="secondary-button">Render preview</button><button id="render-full" class="primary-button">Render full video</button><button id="resume-render" class="secondary-button" hidden>Retry from last chunk</button><button id="stop-render" class="danger-button" hidden>Stop</button></div></section>
       <div class="viewer-footer"><span id="media-info">No media loaded</span><button id="open-output-folder" class="footer-open-button" type="button" hidden>Open project folder</button></div>
+      <div class="log-spacer" id="log-spacer"></div>
+      <section class="log-pane" id="log-pane">
+        <div class="log-resize" id="log-resize" title="Drag to resize">Logs</div>
+        <div class="log-head">
+          <span class="log-kicker">LOG</span>
+          <div class="log-source-toggle" role="tablist" aria-label="Log source">
+            <button class="log-source-button active" data-log-source="stdout" type="button">Server</button>
+            <button class="log-source-button" data-log-source="stderr" type="button">Errors</button>
+            <button class="log-source-button job-tab" data-log-source="job" type="button">Job<span id="log-job-name"></span></button>
+          </div>
+          <span class="log-spacer"></span>
+          <span class="log-count" id="log-count">0 lines</span>
+          <button class="log-toggle-button" id="log-live" type="button" title="Follow new output automatically">Live</button>
+        </div>
+        <div class="log-body" id="log-body" tabindex="0"></div>
+        <div class="log-continue" id="log-continue" hidden>↓ New output — jump to bottom</div>
+      </section>
     </section>
   </main>
   <dialog id="engine-help-dialog"><form method="dialog"><button class="dialog-close" aria-label="Close">×</button><h2>Render engines</h2><p><strong>SeedVR2 + TensorRT</strong> runs the SeedVR2 restoration pipeline with the TensorRT-accelerated VAE decoding path. It is the recommended fast option on supported NVIDIA systems.</p><p><strong>SeedVR2 (Legacy)</strong> uses the standard SeedVR2 PyTorch path. It can support more temporal batch sizes, but it is substantially slower and may take a very long time on video. Use it at your own risk for long renders.</p><p>TensorRT currently supports temporal batches 5 and 21. The batch dropdown updates automatically when you switch engines.</p><button class="primary-button" value="close">Got it</button></form></dialog> <dialog id="chunk-help-dialog"><form method="dialog"><button class="dialog-close" aria-label="Close">×</button><h2>Resumable long-video rendering</h2><p>When enabled, the full video is divided into manageable chunks and processed one at a time. Completed chunks are saved immediately, with a small temporal overlap to reduce boundary seams.</p><p>If a render fails, the completed chunks remain on disk. The failure reason and backend log are saved, and <strong>Retry from last chunk</strong> continues from the first unfinished chunk automatically.</p><p><strong>Auto (recommended)</strong> uses the video duration, frame rate/frame count, and temporal batch size to target roughly ten useful checkpoints, then selects the closest available chunk length. The chosen value is saved in the job manifest and render log.</p><p>This feature is off by default. It does not change the normal render quality or require any manual chunk assembly.</p><button class="primary-button" value="close">Got it</button></form></dialog>

@@ -117,6 +117,84 @@ def _bool(value: str | bool) -> bool:
     return value is True or str(value).lower() in {"1", "true", "yes", "on"}
 
 
+# The launcher (scripts/launch_js.ps1) redirects the uvicorn process' standard
+# streams to these files next to the rendered outputs.
+SERVER_LOGS = {
+    "stdout": OUTPUTS / "js_server.log",
+    "stderr": OUTPUTS / "js_server_error.log",
+}
+
+
+def _tail_lines(path: Path, count: int, small_file_bytes: int = 4 * 1024 * 1024) -> tuple[list[str], bool]:
+    """Return the final ``count`` lines of ``path`` and whether more lines exist above them."""
+    size = path.stat().st_size
+    if size <= small_file_bytes:
+        text = path.read_text(encoding="utf-8", errors="replace")
+        return text.splitlines()[-count:], False
+    # Large file: walk backwards in 256 KiB chunks so we never load the whole log.
+    chunk = 256 * 1024
+    collected: list[str] = []
+    offset = size
+    with path.open("rb") as handle:
+        while offset > 0 and len(collected) < count:
+            start = max(0, offset - chunk)
+            handle.seek(start)
+            data = handle.read(offset - start)
+            offset = start
+            text = data.decode("utf-8", errors="replace")
+            if start > 0:
+                cut = text.find("\n")
+                if cut == -1:
+                    continue  # whole chunk was one truncated line; keep walking back
+                text = text[cut + 1:]
+            collected = text.splitlines() + collected
+    return collected[-count:], True
+
+
+@app.get("/api/logs/server")
+def server_log(source: str = "stdout", lines: int = 300) -> dict[str, object]:
+    """Tail the local server log shown in the UI's log pane."""
+    name = source if source in SERVER_LOGS else "stdout"
+    path = SERVER_LOGS[name]
+    count = max(1, min(lines, 2000))
+    if not path.is_file():
+        return {"source": name, "exists": False, "size": 0, "lines": [], "truncated": False}
+    tail, truncated = _tail_lines(path, count)
+    return {"source": name, "exists": True, "size": path.stat().st_size, "lines": tail, "truncated": truncated}
+
+
+@app.get("/api/logs/job")
+def job_log(job_id: str = "", lines: int = 300) -> dict[str, object]:
+    """Tail a render job's render.log for the UI's log pane.
+
+    The job id is resolved through the in-memory registry first, then by
+    scanning outputs/js-*-<id> folders so logs of jobs from before a server
+    restart are still reachable.
+    """
+    count = max(1, min(lines, 2000))
+    job_dir = None
+    if job_id:
+        with JOBS_LOCK:
+            job = JOBS.get(job_id)
+        if job is not None:
+            job_dir = Path(str(job.get("_job_dir", "")))
+        elif OUTPUTS.is_dir():
+            for directory in sorted(OUTPUTS.iterdir(), key=lambda item: item.stat().st_mtime, reverse=True):
+                if directory.is_dir() and directory.name.endswith(f"-{job_id}"):
+                    job_dir = directory
+                    break
+    log_path = None
+    if job_dir is not None:
+        for candidate in (job_dir / "render.log", job_dir / f"reprocess-{job_id}.log"):
+            if candidate.is_file():
+                log_path = candidate
+                break
+    if log_path is None:
+        return {"source": job_id, "name": "", "exists": False, "size": 0, "lines": [], "truncated": False}
+    tail, truncated = _tail_lines(log_path, count)
+    return {"source": job_id, "name": log_path.parent.name, "exists": True, "size": log_path.stat().st_size, "lines": tail, "truncated": truncated}
+
+
 CHUNK_LENGTH_OPTIONS = (30, 60, 120, 180, 300, 600, 900, 1800)
 
 

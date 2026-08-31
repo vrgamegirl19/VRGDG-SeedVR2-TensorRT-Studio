@@ -36,3 +36,37 @@ button,select,input { font:inherit; }
 .feature-warning { margin:8px 0; padding:8px 9px; border:1px solid #8b5139; border-radius:6px; background:#3a241c; color:#ffc09e; font-size:10px; line-height:1.45; }
 
 .dropzone.drag-over { border-color:var(--accent); background:#161d27; box-shadow:0 0 0 2px rgba(255,154,61,.12); }
+
+/* Server log pane (bottom of the viewer column). The pane is a fixed overlay
+   glued to the bottom of the screen; an in-flow spacer holds its layout slot.
+   JS sizes the pane to the spacer's (viewer column's) width and lets the drag
+   move the pane's TOP edge (bottom stays put). */
+.log-spacer { height:174px; }
+.log-pane { position:fixed; z-index:30; left:330px; right:30px; bottom:0; height:160px; min-height:64px; max-height:60vh; display:flex; flex-direction:column; overflow:hidden; border:1px solid var(--line); border-radius:9px; background:#08090b; box-shadow:0 -14px 40px #0009; }
+.log-pane.hidden,.log-spacer.hidden { display:none !important; }
+.appbar-right { display:flex; align-items:center; gap:14px; }
+.appbar-log-toggle { padding:7px 12px; border:1px solid #4b535e; border-radius:6px; background:var(--panel-2); color:var(--text); font-size:12px; font-weight:600; cursor:pointer; }
+.appbar-log-toggle:hover { border-color:var(--accent); }
+.appbar-log-toggle.active { border-color:var(--accent); color:var(--accent-2); }
+.log-resize { position:absolute; z-index:4; top:0; left:50%; transform:translateX(-50%); height:13px; padding:0 11px 1px; display:grid; place-items:center; border-radius:0 0 7px 7px; background:var(--accent); color:#fff; font-size:9px; font-weight:800; letter-spacing:.1em; cursor:ns-resize; user-select:none; }
+.log-resize:hover { background:var(--accent-2); }
+.log-head { display:flex; align-items:center; gap:10px; flex:0 0 auto; padding:7px 12px; border-bottom:1px solid var(--line); background:#14171c; border-radius:9px 9px 0 0; }
+.log-kicker { color:var(--muted); font-size:10px; font-weight:800; letter-spacing:.14em; }
+.log-source-toggle { display:flex; gap:2px; padding:2px; border:1px solid var(--line); border-radius:6px; background:#0c0f13; }
+.log-source-button { padding:4px 10px; border:0; border-radius:4px; background:transparent; color:var(--muted); font-size:11px; font-weight:600; cursor:pointer; }
+.log-source-button:hover { color:#fff; }
+.log-source-button.active { background:#2a2f37; color:#fff; }
+.log-source-button span { color:var(--muted); font-weight:500; margin-left:5px; font-variant-numeric:tabular-nums; }
+.log-source-button.active span { color:#9fd8bd; }
+.log-source-button.job-tab { max-width:170px; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
+.log-spacer { flex:1; }
+.log-count { color:var(--muted); font-size:10px; font-variant-numeric:tabular-nums; }
+.log-toggle-button { padding:4px 10px; border:1px solid #4b535e; border-radius:5px; background:var(--panel-2); color:var(--text); font-size:11px; font-weight:600; cursor:pointer; }
+.log-toggle-button:hover { border-color:var(--accent); }
+.log-toggle-button.active { border-color:var(--accent); color:var(--accent-2); }
+.log-body { flex:1; overflow-y:auto; padding:8px 12px; color:#c9d1d9; font-family:ui-monospace,'Cascadia Mono',Consolas,monospace; font-size:11.5px; line-height:1.55; white-space:pre-wrap; word-break:break-word; }
+.log-body::-webkit-scrollbar { width:10px; }
+.log-body::-webkit-scrollbar-thumb { border:2px solid #08090b; border-radius:5px; background:#333a44; }
+.log-body::-webkit-scrollbar-thumb:hover { background:var(--accent); }
+.log-continue { position:absolute; bottom:10px; left:50%; transform:translateX(-50%); z-index:3; padding:5px 13px; border:1px solid var(--accent); border-radius:999px; background:#1b1f26; color:var(--accent-2); font-size:11px; font-weight:600; cursor:pointer; box-shadow:0 6px 18px #000a; }
+.log-continue:hover { background:#242a33; }

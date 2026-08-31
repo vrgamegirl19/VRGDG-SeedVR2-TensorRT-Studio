@@ -187,12 +187,12 @@ const pollJob = async (id, token = projectToken) => {
   window.__seedvrProgress = Number(job.progress) || 0;
   updateEta(window.__seedvrProgress);
   $('#render-status').textContent = `${job.message || job.status}${job.progress != null ? ` · ${Math.round(job.progress * 100)}%` : ''}`;
-  if (job.status === 'complete') { stopElapsed(job.elapsed_seconds); setRenderBusy(false); activeJob = null; if (Number(job.fps) > 0) fps = Number(job.fps); if (job.original_url) loadVideo(before, job.original_url); if (job.restored_url) loadVideo(after, job.restored_url); currentOutputPath = job.output_relative || ''; currentOutputReprocessable = Boolean(job.reprocessable); $('#reprocess-post').hidden = !currentOutputReprocessable; $('#open-output-folder').hidden = !currentOutputPath; $('#media-info').textContent = job.job_type === 'reprocess' ? 'Post-only reprocess complete' : `${job.job_type} complete`; loadOutputs(); return; }
-  if (job.status === 'error' || job.status === 'cancelled') { stopElapsed(job.elapsed_seconds); setRenderBusy(false); activeJob = null; if (job.status === 'error' && job.failure_code === 'fps_required') { const enteredFps = requestSourceFps(); if (enteredFps !== null) startRender(job.job_type, enteredFps); else $('#render-status').textContent = 'Render cancelled · source frame rate is required'; return; } lastFailedJob = job.resumable ? job.id : null; $('#resume-render').hidden = !lastFailedJob; $('#render-status').textContent = `${job.failure_reason || job.error || job.message || job.status}${job.log_file ? ' · log saved' : ''}`; return; }
+  if (job.status === 'complete') { stopElapsed(job.elapsed_seconds); setRenderBusy(false); lastJobId = id; activeJob = null; if (Number(job.fps) > 0) fps = Number(job.fps); if (job.original_url) loadVideo(before, job.original_url); if (job.restored_url) loadVideo(after, job.restored_url); currentOutputPath = job.output_relative || ''; currentOutputReprocessable = Boolean(job.reprocessable); $('#reprocess-post').hidden = !currentOutputReprocessable; $('#open-output-folder').hidden = !currentOutputPath; $('#media-info').textContent = job.job_type === 'reprocess' ? 'Post-only reprocess complete' : `${job.job_type} complete`; loadOutputs(); return; }
+  if (job.status === 'error' || job.status === 'cancelled') { stopElapsed(job.elapsed_seconds); setRenderBusy(false); activeJob = null; if (job.status === 'error' && job.failure_code === 'fps_required') { const enteredFps = requestSourceFps(); if (enteredFps !== null) startRender(job.job_type, enteredFps); else $('#render-status').textContent = 'Render cancelled · source frame rate is required'; return; } lastJobId = id; lastFailedJob = job.resumable ? job.id : null; $('#resume-render').hidden = !lastFailedJob; $('#render-status').textContent = `${job.failure_reason || job.error || job.message || job.status}${job.log_file ? ' · log saved' : ''}`; return; }
   setTimeout(() => pollJob(id, token).catch((error) => { if (token !== projectToken) return; setRenderBusy(false); $('#render-status').textContent = error.message; }), 800);
 };
-const startRender = async (type, sourceFps = 0) => { try { setRenderBusy(true); $('#render-status').textContent = `Uploading ${type}…`; const response = await fetch('/api/jobs', { method:'POST', body:renderForm(type, sourceFps) }); if (!response.ok) throw new Error(await response.text()); activeJob = (await response.json()).id; startElapsed(); pollJob(activeJob, projectToken); } catch (error) { stopElapsed(0); setRenderBusy(false); $('#render-status').textContent = error.message; } };
-const startReprocess = async () => { try { if (!currentOutputPath || !currentOutputReprocessable) throw new Error('Load a TensorRT result with saved decoded batches first.'); const data = new FormData(); data.append('output_path', currentOutputPath); data.append('seed', formValue('seed')); data.append('sharpen_enabled', formChecked('sharpen')); data.append('sharpen_strength', formValue('sharpen-strength')); data.append('microtexture_enabled', $('#skin-finishing').checked ? formChecked('microtexture') : 'false'); data.append('microtexture_strength', formValue('microtexture-strength')); data.append('skin_finishing_enabled', formChecked('skin-finishing')); data.append('skin_evenness', formValue('skin-evenness')); data.append('skin_smoothing', formValue('skin-smoothing')); data.append('skin_redness', formValue('skin-redness')); data.append('skin_shine', formValue('skin-shine')); data.append('blemish_mode', formValue('blemish-mode')); data.append('preserve_marks', formChecked('preserve-marks')); data.append('grain_enabled', formChecked('grain')); data.append('grain_intensity', formValue('grain-intensity')); data.append('grain_saturation', formValue('grain-saturation')); data.append('seam_mode', $('#seam-enabled').checked ? 'match' : 'off'); data.append('seam_frames', '2'); setRenderBusy(true); $('#render-status').textContent = 'Starting post-only reprocess…'; const response = await fetch('/api/reprocess', {method:'POST', body:data}); if (!response.ok) throw new Error(await response.text()); activeJob = (await response.json()).id; startElapsed(); pollJob(activeJob, projectToken); } catch (error) { stopElapsed(0); setRenderBusy(false); $('#render-status').textContent = error.message; } };
+const startRender = async (type, sourceFps = 0) => { try { setRenderBusy(true); $('#render-status').textContent = `Uploading ${type}…`; const response = await fetch('/api/jobs', { method:'POST', body:renderForm(type, sourceFps) }); if (!response.ok) throw new Error(await response.text()); activeJob = (await response.json()).id; logFollowJob(); startElapsed(); pollJob(activeJob, projectToken); } catch (error) { stopElapsed(0); setRenderBusy(false); $('#render-status').textContent = error.message; } };
+const startReprocess = async () => { try { if (!currentOutputPath || !currentOutputReprocessable) throw new Error('Load a TensorRT result with saved decoded batches first.'); const data = new FormData(); data.append('output_path', currentOutputPath); data.append('seed', formValue('seed')); data.append('sharpen_enabled', formChecked('sharpen')); data.append('sharpen_strength', formValue('sharpen-strength')); data.append('microtexture_enabled', $('#skin-finishing').checked ? formChecked('microtexture') : 'false'); data.append('microtexture_strength', formValue('microtexture-strength')); data.append('skin_finishing_enabled', formChecked('skin-finishing')); data.append('skin_evenness', formValue('skin-evenness')); data.append('skin_smoothing', formValue('skin-smoothing')); data.append('skin_redness', formValue('skin-redness')); data.append('skin_shine', formValue('skin-shine')); data.append('blemish_mode', formValue('blemish-mode')); data.append('preserve_marks', formChecked('preserve-marks')); data.append('grain_enabled', formChecked('grain')); data.append('grain_intensity', formValue('grain-intensity')); data.append('grain_saturation', formValue('grain-saturation')); data.append('seam_mode', $('#seam-enabled').checked ? 'match' : 'off'); data.append('seam_frames', '2'); setRenderBusy(true); $('#render-status').textContent = 'Starting post-only reprocess…'; const response = await fetch('/api/reprocess', {method:'POST', body:data}); if (!response.ok) throw new Error(await response.text()); activeJob = (await response.json()).id; logFollowJob(); startElapsed(); pollJob(activeJob, projectToken); } catch (error) { stopElapsed(0); setRenderBusy(false); $('#render-status').textContent = error.message; } };
 $('#render-preview').addEventListener('click', () => startRender('preview')); $('#render-full').addEventListener('click', () => startRender('full'));
 $('#reprocess-post').addEventListener('click', startReprocess);
 $('#resume-render').addEventListener('click', async () => { if (!lastFailedJob) return; try { $('#resume-render').hidden = true; setRenderBusy(true); const response = await fetch(`/api/jobs/${lastFailedJob}/resume`, {method:'POST'}); if (!response.ok) throw new Error(await response.text()); activeJob = lastFailedJob; startElapsed(); pollJob(activeJob, projectToken); } catch (error) { setRenderBusy(false); $('#render-status').textContent = error.message; } });
@@ -271,4 +271,134 @@ applyUpdateButton.addEventListener('click', async () => {
     updateMessage.textContent = `Update failed: ${error.message}`;
     applyUpdateButton.disabled = false;
   }
+});
+
+/* ── Server log pane ───────────────────────────────────────────── */
+const logPane = $('#log-pane');
+const logBody = $('#log-body');
+const logCount = $('#log-count');
+const logLiveButton = $('#log-live');
+const logContinue = $('#log-continue');
+const logSourceButtons = Array.from(document.querySelectorAll('.log-source-button'));
+const LOG_SIZE_KEY = 'seedvr-studio-log-size-v1';
+const LOG_LINES = 300;
+const LOG_POLL_MS = 1500;
+let logSource = 'stdout';
+let logLive = true;
+let logSize = null;
+let lastJobId = null;
+const logJobName = $('#log-job-name');
+const logCurrentJob = () => activeJob || lastJobId || '';
+// Switch the pane to the job log (called when a render starts).
+const logFollowJob = () => { if (logSource !== 'job') switchLogSource('job'); };
+
+const logNearBottom = () => logBody.scrollTop + logBody.clientHeight >= logBody.scrollHeight - 40;
+const logScrollBottom = (smooth = false) => { logBody.scrollTo({top: logBody.scrollHeight, behavior: smooth ? 'smooth' : 'auto'}); };
+const logSpacer = $('#log-spacer');
+const setLogHeight = (height) => { logSize = height; const h = `${Math.round(height)}px`; logPane.style.height = h; logSpacer.style.height = `${Math.round(height + 14)}px`; };
+
+const logRefreshButtonState = () => {
+  logLiveButton.textContent = logLive ? 'Live' : 'Paused';
+  logLiveButton.classList.toggle('active', logLive);
+  logLiveButton.title = logLive ? 'Follow new output automatically' : 'Paused — new output will be collected until you resume';
+};
+const setLogCount = (payload) => {
+  if (!payload.exists) { logCount.textContent = 'no log yet'; return; }
+  logCount.textContent = payload.truncated ? `+${payload.lines.length} more lines` : `${payload.lines.length} lines shown`;
+};
+// Full-tail re-render. Called when the pane is empty (first paint / source switch)
+// or while following live output — exactly the last N lines the server tails.
+const logSetBody = (payload) => {
+  if (payload.exists) { logBody.textContent = payload.lines.join('\n'); return; }
+  logBody.textContent = logSource === 'job' ? 'Render queued — waiting for the first log line…' : 'No log file yet — it appears when the server starts.';
+};
+const logPoll = async () => {
+  if (logPane.classList.contains('hidden')) return;
+  try {
+    const jobId = logSource === 'job' ? logCurrentJob() : '';
+    const response = await fetch(`/api/logs/${logSource === 'job' ? 'job' : 'server'}?${logSource === 'job' ? 'job_id=' + jobId : 'source=' + logSource}&lines=${LOG_LINES}`, {cache: 'no-store'});
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const payload = await response.json();
+    if (logSource === 'job' && payload.name) logJobName.textContent = `· ${payload.name}`;
+    if (logSource === 'job' && !jobId) { setLogCount(payload); logBody.textContent = 'No render job yet — start a preview or full render and its log appears here.'; logContinue.hidden = true; return; }
+    setLogCount(payload);
+    const empty = logBody.textContent.trim() === '';
+    if (empty || logLive) {
+      logSetBody(payload);
+      if (logLive) logScrollBottom();
+    }
+    logContinue.hidden = !(logLive && !logNearBottom());
+  } catch (_) {
+    if (logBody.textContent.trim() === '') logBody.textContent = 'Server log unavailable.';
+  }
+};
+
+const switchLogSource = (source) => {
+  logSource = source;
+  logSourceButtons.forEach((button) => button.classList.toggle('active', button.dataset.logSource === source));
+  logBody.textContent = '';
+  logContinue.hidden = true;
+  logPoll();
+};
+
+logSourceButtons.forEach((button) => button.addEventListener('click', () => switchLogSource(button.dataset.logSource)));
+logLiveButton.addEventListener('click', () => {
+  logLive = !logLive;
+  if (logLive) { logScrollBottom(); logPoll(); }
+  logRefreshButtonState();
+});
+logContinue.addEventListener('click', () => { logScrollBottom(true); logPoll(); });
+logBody.addEventListener('scroll', () => {
+  logLive = logLive && logNearBottom();
+  logRefreshButtonState();
+  logContinue.hidden = !(logLive && !logNearBottom());
+});
+const logApplyPersistedSize = () => { try { const saved = Number(localStorage.getItem(LOG_SIZE_KEY)); if (Number.isFinite(saved) && saved > 0) setLogHeight(saved); } catch (_) {} };
+// Keep the fixed overlay aligned with the viewer column's content width so it
+// never covers the left settings rail (the spacer sits in that column's flow).
+const logSyncWidth = () => { if (logPane.classList.contains('hidden')) return; const rect = logSpacer.getBoundingClientRect(); logPane.style.left = `${Math.round(rect.left)}px`; logPane.style.right = `${Math.round(window.innerWidth - rect.right)}px`; };
+window.addEventListener('resize', logSyncWidth);
+// Show/hide toggle in the app bar (state persists).
+const logVisibleToggle = $('#log-visible-toggle');
+const LOG_VISIBLE_KEY = 'seedvr-studio-log-visible-v1';
+const setLogVisible = (visible) => {
+  logPane.classList.toggle('hidden', !visible);
+  logSpacer.classList.toggle('hidden', !visible);
+  logVisibleToggle.classList.toggle('active', visible);
+  logVisibleToggle.textContent = visible ? 'Hide log' : 'Show log';
+  logVisibleToggle.title = visible ? 'Hide the server log pane' : 'Show the server log pane';
+  try { localStorage.setItem(LOG_VISIBLE_KEY, visible ? '1' : '0'); } catch (_) {}
+  if (visible) { logSyncWidth(); logPoll(); }
+};
+logVisibleToggle.addEventListener('click', () => setLogVisible(logPane.classList.contains('hidden')));
+logApplyPersistedSize();
+try { if (localStorage.getItem(LOG_VISIBLE_KEY) === '0') setLogVisible(false); } catch (_) {}
+logRefreshButtonState();
+logSyncWidth();
+logPoll();
+setInterval(logPoll, LOG_POLL_MS);
+
+const logResize = $('#log-resize');
+let logResizing = false;
+logResize.addEventListener('pointerdown', (event) => {
+  // The pane is glued to the bottom of the screen, so the drag simply sets the
+  // height to the cursor's distance from the viewport bottom — the TOP edge of
+  // the pane follows the cursor 1:1 while the bottom stays pinned.
+  logResizing = true;
+  logResize.setPointerCapture?.(event.pointerId);
+  document.body.style.userSelect = 'none';
+  document.body.style.cursor = 'ns-resize';
+  event.preventDefault();
+});
+window.addEventListener('pointermove', (event) => {
+  if (!logResizing) return;
+  const height = Math.min(window.innerHeight * 0.6, Math.max(64, window.innerHeight - event.clientY));
+  setLogHeight(height);
+});
+window.addEventListener('pointerup', () => {
+  if (!logResizing) return;
+  logResizing = false;
+  document.body.style.userSelect = '';
+  document.body.style.cursor = '';
+  try { localStorage.setItem(LOG_SIZE_KEY, String(logSize)); } catch (_) {}
 });
