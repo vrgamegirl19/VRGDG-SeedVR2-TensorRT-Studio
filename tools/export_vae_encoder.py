@@ -7,7 +7,7 @@ import sys
 from pathlib import Path
 
 import torch
-
+torch.cuda.empty_cache()
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8")
 
@@ -56,7 +56,7 @@ def main() -> None:
     parser.add_argument("--width", type=int, default=64)
     parser.add_argument("--frames", type=int, default=5)
     parser.add_argument("--output", type=Path, default=ROOT / "tensorrt_backend" / "artifacts" / "vae_encoder.onnx")
-    parser.add_argument("--legacy-export", action="store_true")
+    parser.add_argument("--legacy-export", action="store_false". default=False)
     args = parser.parse_args()
     if not torch.cuda.is_available():
         raise RuntimeError("CUDA is required for the VAE export")
@@ -70,7 +70,7 @@ def main() -> None:
     runner, _ = prepare_runner(
         dit_model=DEFAULT_DIT, vae_model=DEFAULT_VAE,
         model_dir=str(ROOT / "models" / "SEEDVR2"), debug=debug, ctx=ctx,
-        block_swap_config={"blocks_to_swap": 0, "swap_io_components": False, "offload_device": None},
+        block_swap_config={"blocks_to_swap": 0, "swap_io_components": False, "offload_device": "cpu"},
         attention_mode="sdpa",
     )
     materialize_model(runner, "vae", device, runner.config, debug)
