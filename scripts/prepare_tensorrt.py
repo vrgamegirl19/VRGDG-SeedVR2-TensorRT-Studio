@@ -33,6 +33,8 @@ def main() -> int:
             print(f"Skipping {label}; engine already exists: {engine.name}")
             continue
         print(f"\nPreparing TensorRT {label} profile (keep this window open)...", flush=True)
+        if "--device" in arguments and "cpu" in arguments:
+            print("Using CPU export for this large profile to avoid GPU out-of-memory during setup.", flush=True)
         started = time.perf_counter()
         if not onnx.exists():
             run([str(PYTHON), str(ROOT / "tools" / exporter), *arguments, "--output", str(onnx)])
