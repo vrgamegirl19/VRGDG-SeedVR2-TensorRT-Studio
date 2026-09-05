@@ -68,6 +68,7 @@ def main() -> None:
     parser.add_argument("--batch-size", type=int, default=1)
     parser.add_argument("--legacy-export", action="store_true",
                         help="Use the legacy fixed-shape ONNX tracer")
+    parser.add_argument("--device", choices=("cuda", "cpu"), default="cuda", help="Device used for ONNX export; CPU avoids large GPU allocations.")
     parser.add_argument("--output", type=Path, default=ROOT / "tensorrt_backend" / "artifacts" / "vae_decoder.onnx")
     args = parser.parse_args()
 
@@ -86,7 +87,7 @@ def main() -> None:
     )
     # TensorRT parity target is FP16; keep this experiment independent of the
     # normal pipeline's automatic bfloat16 choice.
-    ctx["compute_dtype"] = torch.float16
+    ctx["compute_dtype"] = torch.float16 if device.type == "cuda" else torch.float32
     runner, _ = prepare_runner(
         dit_model=DEFAULT_DIT,
         vae_model=DEFAULT_VAE,
@@ -107,7 +108,7 @@ def main() -> None:
 
     latent = torch.randn(
         args.batch_size, 16, args.latent_frames, args.height // 8, args.width // 8,
-        device=device, dtype=torch.float16,
+        device=device, dtype=torch.float16 if device.type == "cuda" else torch.float32,
     )
     args.output.parent.mkdir(parents=True, exist_ok=True)
     with torch.inference_mode():
