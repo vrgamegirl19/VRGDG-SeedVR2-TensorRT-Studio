@@ -181,7 +181,7 @@ def make_thumbnail(source: Path, target: Path) -> Path:
     target.parent.mkdir(parents=True, exist_ok=True)
     run([
         _tool("ffmpeg"), "-y", "-ss", "0", "-i", str(source), "-frames:v", "1",
-        "-vf", "thumbnail=1,scale=320:180:force_original_aspect_ratio=decrease,pad=320:180:-1:-1:color=black",
+        "-vf", "scale=320:180:force_original_aspect_ratio=decrease,pad=320:180:-1:-1:color=black",
         "-q:v", "5", str(target),
     ])
     return target
