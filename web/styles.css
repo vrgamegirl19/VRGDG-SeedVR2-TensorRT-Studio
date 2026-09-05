@@ -36,3 +36,16 @@ button,select,input { font:inherit; }
 .feature-warning { margin:8px 0; padding:8px 9px; border:1px solid #8b5139; border-radius:6px; background:#3a241c; color:#ffc09e; font-size:10px; line-height:1.45; }
 
 .dropzone.drag-over { border-color:var(--accent); background:#161d27; box-shadow:0 0 0 2px rgba(255,154,61,.12); }
+
+.output-picker { position:relative; }
+.output-picker-toggle { display:flex; align-items:center; gap:9px; width:100%; min-height:48px; padding:6px 9px; border:1px solid var(--line); border-radius:6px; background:#101318; color:var(--text); cursor:pointer; text-align:left; }
+.output-picker-toggle:hover,.output-picker-toggle.has-selection { border-color:var(--accent); }
+.output-picker-label { min-width:0; flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.output-picker-chevron { color:var(--muted); }
+.output-picker-thumb,.output-item-thumb { flex:0 0 auto; width:58px; height:34px; border-radius:4px; background-color:#050608; background-position:center; background-size:cover; background-repeat:no-repeat; }
+.output-picker-menu { position:absolute; z-index:20; top:calc(100% + 5px); left:0; right:0; max-height:310px; overflow:auto; padding:4px; border:1px solid #454c56; border-radius:7px; background:#171a20; box-shadow:0 15px 35px #000b; }
+.output-picker-item { display:flex; align-items:center; gap:9px; width:100%; padding:6px; border:0; border-radius:5px; background:transparent; color:var(--text); cursor:pointer; text-align:left; }
+.output-picker-item:hover,.output-picker-item:focus { background:#2d333b; outline:none; }
+.output-item-copy { min-width:0; display:flex; flex-direction:column; gap:3px; }
+.output-item-copy strong { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:11px; }
+.output-item-copy small { color:var(--muted); font-size:10px; }
