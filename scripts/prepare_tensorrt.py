@@ -24,6 +24,16 @@ def run(command: list[str]) -> None:
     subprocess.run([command[0], "-u", *command[1:]], cwd=ROOT, check=True)
 
 
+def export_with_fallback(exporter: str, arguments: tuple[str, ...], onnx: Path) -> None:
+    """Export on GPU first, retrying on CPU if the GPU export fails."""
+    gpu_arguments = (*arguments, "--device", "cuda")
+    try:
+        run([str(PYTHON), str(ROOT / "tools" / exporter), *gpu_arguments, "--output", str(onnx)])
+    except subprocess.CalledProcessError:
+        print("GPU ONNX export failed; retrying this profile on CPU to avoid setup OOM.", flush=True)
+        cpu_arguments = (*arguments, "--device", "cpu")
+        run([str(PYTHON), str(ROOT / "tools" / exporter), *cpu_arguments, "--output", str(onnx)])
+
 def main() -> int:
     ARTIFACTS.mkdir(parents=True, exist_ok=True)
     for label, stem, exporter, arguments in PROFILES:
@@ -35,7 +45,7 @@ def main() -> int:
         print(f"\nPreparing TensorRT {label} profile (keep this window open)...", flush=True)
         started = time.perf_counter()
         if not onnx.exists():
-            run([str(PYTHON), str(ROOT / "tools" / exporter), *arguments, "--output", str(onnx)])
+            export_with_fallback(exporter, arguments, onnx)
         run([str(PYTHON), str(ROOT / "tools" / "build_tensorrt_engine.py"), str(onnx), "--output", str(engine), "--workspace-gb", "8"])
         if not engine.exists():
             raise RuntimeError(f"TensorRT did not create {engine}")
