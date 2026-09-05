@@ -49,3 +49,4 @@ button,select,input { font:inherit; }
 .output-item-copy { min-width:0; display:flex; flex-direction:column; gap:3px; }
 .output-item-copy strong { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:11px; }
 .output-item-copy small { color:var(--muted); font-size:10px; }
+.output-picker-thumb,.output-item-thumb { display:block; object-fit:cover; pointer-events:none; }
