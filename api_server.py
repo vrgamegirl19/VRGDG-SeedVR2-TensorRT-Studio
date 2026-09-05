@@ -24,7 +24,7 @@ from fastapi.staticfiles import StaticFiles
 from seedvr_studio.backend import MODEL_FILES, backend_status, render, reprocess_tensorrt, tensorrt_status
 from seedvr_studio.cancellation import begin_render, cancel_current_render, cancellation_requested
 from seedvr_studio.jobs import _settings
-from seedvr_studio.media import FrameRateRequiredError, concat_videos, make_center_crop, make_clip, probe, resolve_frame_rate, trim_video_start
+from seedvr_studio.media import FrameRateRequiredError, concat_videos, make_center_crop, make_clip, make_thumbnail, probe, resolve_frame_rate, trim_video_start
 from seedvr_studio.paths import ensure_workspace
 from seedvr_studio.updater import UpdateError, check_for_updates, launch_updater
 
@@ -451,6 +451,19 @@ def open_output_folder(output_path: str = Form(...)) -> dict[str, object]:
         raise HTTPException(status_code=404, detail="Selected output was not found")
     subprocess.Popen(["explorer.exe", f"/select,{candidate}"], close_fds=True)
     return {"ok": True}
+
+
+@app.get("/api/output-thumbnail")
+def output_thumbnail(path: str) -> FileResponse:
+    """Return a cached small JPEG made from the output video first frame."""
+    relative = path.removeprefix("/media/").lstrip("/\\")
+    candidate = (OUTPUTS / relative).resolve()
+    if OUTPUTS.resolve() not in candidate.parents or not candidate.is_file() or candidate.suffix.lower() != ".mp4":
+        raise HTTPException(status_code=404, detail="Selected output was not found")
+    thumbnail = candidate.with_name(f".{candidate.stem}-thumbnail.jpg")
+    if not thumbnail.is_file() or thumbnail.stat().st_mtime < candidate.stat().st_mtime:
+        make_thumbnail(candidate, thumbnail)
+    return FileResponse(thumbnail, media_type="image/jpeg")
 
 
 @app.get("/media/{relative_path:path}")
