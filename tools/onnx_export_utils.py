@@ -7,6 +7,30 @@ from contextlib import nullcontext
 from pathlib import Path
 
 import torch
+from torch.onnx import symbolic_helper
+
+
+@symbolic_helper.parse_args("v", "v", "is", "is", "is", "i", "b", "b", "b")
+def _cudnn_convolution_symbolic(
+    graph, value, weight, padding, stride, dilation, groups,
+    benchmark, deterministic, allow_tf32,
+):
+    """Export the low-memory direct-cuDNN path as a portable ONNX Conv."""
+    del benchmark, deterministic, allow_tf32
+    return graph.op(
+        "Conv",
+        value,
+        weight,
+        dilations_i=dilation,
+        group_i=groups,
+        pads_i=[*padding, *padding],
+        strides_i=stride,
+    )
+
+
+torch.onnx.register_custom_op_symbolic(
+    "aten::cudnn_convolution", _cudnn_convolution_symbolic, 20
+)
 
 
 def _math_attention_context():
@@ -19,7 +43,10 @@ def _math_attention_context():
 
 def _portable_export(module: torch.nn.Module, args: tuple[torch.Tensor, ...], output: Path, *, legacy: bool) -> None:
     is_encoder = args[0].ndim == 5 and args[0].shape[1] == 3
-    with torch.inference_mode(), torch.backends.cudnn.flags(enabled=False), _math_attention_context():
+    # Keep cuDNN enabled so SeedVR2's direct-cuDNN Conv3d workaround remains
+    # active. The custom symbolic above converts that CUDA-only operator into
+    # a standard, portable ONNX Conv for TensorRT.
+    with torch.inference_mode(), torch.backends.cudnn.flags(enabled=True), _math_attention_context():
         torch.onnx.export(
             module,
             args,
