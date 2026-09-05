@@ -64,7 +64,9 @@ def smooth_boundary(previous: torch.Tensor, current: torch.Tensor, mode: str, fr
     return result.to(dtype=current.dtype)
 
 
-def crop_decoder_padding(frames, reference: Path | None, target_width: int = 0, target_height: int = 0):
+def crop_decoder_padding(
+    frames, reference: Path | None, target_width: int = 0, target_height: int = 0, *, log: bool = True
+):
     """Remove TensorRT's bottom/right alignment padding using the source aspect ratio.
 
     TensorRT alignment rows are not guaranteed to remain exactly black after
@@ -79,7 +81,7 @@ def crop_decoder_padding(frames, reference: Path | None, target_width: int = 0, 
                 f"Requested unpadded size {target_width}x{target_height} exceeds "
                 f"decoded canvas {frame_width}x{frame_height}"
             )
-        if (target_width, target_height) != (frame_width, frame_height):
+        if log and (target_width, target_height) != (frame_width, frame_height):
             print(
                 f"Removing known resize padding: {frame_width}x{frame_height} "
                 f"-> {target_width}x{target_height}"
@@ -98,7 +100,7 @@ def crop_decoder_padding(frames, reference: Path | None, target_width: int = 0, 
         target_width = frame_width
         target_height = max(2, round(target_width / source_ratio) // 2 * 2)
         if target_height <= frame_height:
-            if target_height != frame_height:
+            if log and target_height != frame_height:
                 print(f"Removing TensorRT alignment padding: {frame_width}x{frame_height} -> {target_width}x{target_height}")
             frames = frames[:, :target_height, :target_width, :]
             return frames, (target_width, target_height)
@@ -106,18 +108,36 @@ def crop_decoder_padding(frames, reference: Path | None, target_width: int = 0, 
         target_height = frame_height
         target_width = max(2, round(target_height * source_ratio) // 2 * 2)
         if target_width <= frame_width:
-            if target_width != frame_width:
+            if log and target_width != frame_width:
                 print(f"Removing TensorRT alignment padding: {frame_width}x{frame_height} -> {target_width}x{target_height}")
             frames = frames[:, :target_height, :target_width, :]
             return frames, (target_width, target_height)
-    if (target_width, target_height) != (frame_width, frame_height):
+    if log and (target_width, target_height) != (frame_width, frame_height):
         print(f"Restoring source aspect: {frame_width}x{frame_height} -> {target_width}x{target_height}")
     return frames, (target_width, target_height)
 
 
+def _input_paths(args: argparse.Namespace) -> list[Path]:
+    paths = list(args.inputs)
+    if args.input_list:
+        for line in args.input_list.read_text(encoding="utf-8").splitlines():
+            text = line.strip()
+            if text and not text.startswith("#"):
+                paths.append(Path(text))
+    if not paths:
+        raise ValueError("Provide decoded tensors as arguments or --input-list")
+    return paths
+
+
+def _uint8_frames(tensor: torch.Tensor):
+    frames = tensor[0].permute(1, 2, 3, 0)
+    return ((frames.float().clamp(-1, 1) + 1) * 127.5).byte().numpy()
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("inputs", type=Path, nargs="+")
+    parser.add_argument("inputs", type=Path, nargs="*")
+    parser.add_argument("--input-list", type=Path, help="Text file with one decoded tensor path per line")
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--audio", type=Path)
     parser.add_argument("--fps", type=float, default=24.0)
@@ -126,45 +146,55 @@ def main() -> None:
     parser.add_argument("--target-width", type=int, default=0)
     parser.add_argument("--target-height", type=int, default=0)
     args = parser.parse_args()
-    tensors = []
-    for path in args.inputs:
-        tensor, keep = load_video_tensor(path)
-        if keep is not None:
-            tensor = tensor[:, :, :keep]
-        if tensors:
-            tensor = smooth_boundary(tensors[-1], tensor, args.seam_mode, args.seam_frames)
-        tensors.append(tensor)
-    if not tensors:
-        raise ValueError("At least one decoded tensor is required")
-    frames = torch.cat(tensors, dim=2)[0].permute(1, 2, 3, 0)
-    frames = ((frames.float().clamp(-1, 1) + 1) * 127.5).byte().numpy()
-    frames, output_size = crop_decoder_padding(
-        frames, args.audio, args.target_width, args.target_height
-    )
+    inputs = _input_paths(args)
     temp = args.output.with_name(args.output.stem + "_noaudio.mp4")
-    width, height = output_size
-    # OpenCV chooses a backend-specific bitrate. A fixed CRF keeps restored
-    # detail high while preventing unexpectedly oversized output files.
-    encode_command = [
-        "ffmpeg", "-y", "-loglevel", "error",
-        "-f", "rawvideo", "-pix_fmt", "rgb24",
-        "-s:v", f"{width}x{height}", "-r", f"{args.fps:.9g}", "-i", "pipe:0",
-        "-an", "-c:v", "libx264", "-preset", "medium", "-crf", "18",
-        "-pix_fmt", "yuv420p", "-movflags", "+faststart", str(temp),
-    ]
-    encoder = subprocess.Popen(encode_command, stdin=subprocess.PIPE)
+    encoder = None
+    encode_command: list[str] = []
+    output_size = None
+    previous = None
+    total_frames = 0
     write_error = None
     try:
-        assert encoder.stdin is not None
-        for frame in frames:
-            if (frame.shape[1], frame.shape[0]) != output_size:
-                frame = cv2.resize(frame, output_size, interpolation=cv2.INTER_LINEAR)
-            encoder.stdin.write(frame.tobytes())
+        for index, path in enumerate(inputs, start=1):
+            tensor, keep = load_video_tensor(path)
+            if keep is not None:
+                tensor = tensor[:, :, :keep]
+            if previous is not None:
+                tensor = smooth_boundary(previous, tensor, args.seam_mode, args.seam_frames)
+            frames = _uint8_frames(tensor)
+            frames, batch_size = crop_decoder_padding(
+                frames, args.audio, args.target_width, args.target_height, log=index == 1
+            )
+            if encoder is None:
+                output_size = batch_size
+                width, height = output_size
+                encode_command = [
+                    "ffmpeg", "-y", "-loglevel", "error",
+                    "-f", "rawvideo", "-pix_fmt", "rgb24",
+                    "-s:v", f"{width}x{height}", "-r", f"{args.fps:.9g}", "-i", "pipe:0",
+                    "-an", "-c:v", "libx264", "-preset", "medium", "-crf", "18",
+                    "-pix_fmt", "yuv420p", "-movflags", "+faststart", str(temp),
+                ]
+                encoder = subprocess.Popen(encode_command, stdin=subprocess.PIPE)
+                print(f"Assembling {len(inputs)} decoded batches...", flush=True)
+            assert encoder.stdin is not None
+            for frame in frames:
+                if (frame.shape[1], frame.shape[0]) != output_size:
+                    frame = cv2.resize(frame, output_size, interpolation=cv2.INTER_LINEAR)
+                encoder.stdin.write(frame.tobytes())
+            total_frames += int(frames.shape[0])
+            previous = tensor
+            if index == 1 or index == len(inputs) or index % 50 == 0:
+                print(f"Assembled batch {index} of {len(inputs)} ({total_frames} frames)", flush=True)
+        if encoder is None:
+            raise ValueError("At least one decoded tensor is required")
     except BrokenPipeError as exc:
         write_error = exc
     finally:
-        if encoder.stdin is not None:
+        if encoder is not None and encoder.stdin is not None:
             encoder.stdin.close()
+    if encoder is None:
+        raise ValueError("At least one decoded tensor is required")
     return_code = encoder.wait()
     if return_code:
         temp.unlink(missing_ok=True)
@@ -173,14 +203,14 @@ def main() -> None:
         temp.unlink(missing_ok=True)
         raise write_error
     if args.audio:
-        video_duration = frames.shape[0] / max(args.fps, 1e-6)
+        video_duration = total_frames / max(args.fps, 1e-6)
         subprocess.run(["ffmpeg", "-y", "-i", str(temp), "-i", str(args.audio),
                         "-map", "0:v:0", "-map", "1:a:0?", "-c:v", "copy",
                         "-c:a", "aac", "-t", f"{video_duration:.9f}", str(args.output)], check=True)
         temp.unlink(missing_ok=True)
     else:
         temp.replace(args.output)
-    print(f"Frames: {frames.shape[0]}")
+    print(f"Frames: {total_frames}")
     print(f"Output: {output_size[0]}x{output_size[1]} @ {args.fps:g}fps")
     print(f"Saved: {args.output}")
 

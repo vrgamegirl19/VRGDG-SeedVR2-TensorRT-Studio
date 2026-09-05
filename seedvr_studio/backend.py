@@ -308,9 +308,12 @@ def reprocess_tensorrt(
             progress_callback(0.75 * index / len(decoded_files), f"Post-processing batch {index} of {len(decoded_files)}")
     if progress_callback:
         progress_callback(0.8, "Applying seam treatment and assembling video")
-    command = [str(VENV_PYTHON), str(TRT_ASSEMBLER), *map(str, selected_files),
-               "--output", str(output), "--audio", str(source), "--fps", str(resolve_frame_rate(probe(source).fps)),
-               "--seam-mode", seam_mode, "--seam-frames", str(seam_frames)]
+    from .tensorrt_pipeline import assemble_command
+    command = assemble_command(
+        selected_files, output, source,
+        fps=resolve_frame_rate(probe(source).fps),
+        seam_mode=seam_mode, seam_frames=seam_frames,
+    )
     result = subprocess.run(command, cwd=ROOT, env=child_env, text=True,
                             encoding="utf-8", errors="replace", capture_output=True)
     _safe_print(result.stdout, end="")
