@@ -176,6 +176,17 @@ def make_frame_clip(source: Path, target: Path, start: float, frame_count: int) 
     return target
 
 
+def make_thumbnail(source: Path, target: Path) -> Path:
+    """Create a small JPEG preview from the first video frame."""
+    target.parent.mkdir(parents=True, exist_ok=True)
+    run([
+        _tool("ffmpeg"), "-y", "-ss", "0", "-i", str(source), "-frames:v", "1",
+        "-vf", "thumbnail=1,scale=320:180:force_original_aspect_ratio=decrease,pad=320:180:-1:-1:color=black",
+        "-q:v", "5", str(target),
+    ])
+    return target
+
+
 def make_demo_restore(source: Path, target: Path, resolution: int) -> Path:
     """Fast non-AI renderer used to test the complete UI before models are installed."""
     target.parent.mkdir(parents=True, exist_ok=True)
