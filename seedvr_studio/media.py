@@ -111,14 +111,27 @@ def trim_video_start(source: Path, target: Path, start: float) -> Path:
 
 
 def concat_videos(chunks: list[Path], target: Path) -> Path:
-    """Join compatible rendered chunks without loading them into memory."""
+    """Join rendered chunks with one continuous timeline.
+
+    Stream-copy concatenation preserves per-chunk timestamps. Re-encoding the
+    assembled timeline gives FFmpeg one timestamp domain for both streams and
+    prevents audio from outliving the final video frame.
+    """
     if not chunks:
         raise MediaError("No rendered chunks are available to assemble")
     target.parent.mkdir(parents=True, exist_ok=True)
     listing = target.parent / "concat-list.txt"
     listing.write_text("\n".join(f"file '{path.resolve().as_posix().replace("'", "'\\''")}'" for path in chunks), encoding="utf-8")
     try:
-        run([_tool("ffmpeg"), "-y", "-f", "concat", "-safe", "0", "-i", str(listing), "-c", "copy", "-movflags", "+faststart", str(target)])
+        run([
+            _tool("ffmpeg"), "-y", "-f", "concat", "-safe", "0", "-i", str(listing),
+            "-map", "0:v:0", "-map", "0:a?",
+            "-fflags", "+genpts", "-avoid_negative_ts", "make_zero",
+            "-fps_mode", "cfr",
+            "-c:v", "libx264", "-preset", "fast", "-crf", "15",
+            "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "192k",
+            "-movflags", "+faststart", str(target),
+        ])
     finally:
         listing.unlink(missing_ok=True)
     return target
